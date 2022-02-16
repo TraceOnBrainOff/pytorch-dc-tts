@@ -14,17 +14,19 @@ import torch.nn.functional as F
 
 # project imports
 from models import Text2Mel
-from hparams import HParams as hp
+from hyperparams import HParams as hp
 from logger import Logger
-from utils import get_last_checkpoint_file_name, load_checkpoint, save_checkpoint
+from utils import get_last_checkpoint_file_name, load_checkpoint, save_checkpoint, load_checkpoint_test
 from datasets.data_loader import Text2MelDataLoader
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("--dataset", required=True, choices=['ljspeech', 'mbspeech'], help='dataset name')
+parser.add_argument("--dataset", required=True, choices=['ljspeech', 'mbspeech','emovdb'], help='dataset name')
 args = parser.parse_args()
 
 if args.dataset == 'ljspeech':
     from datasets.lj_speech import vocab, LJSpeech as SpeechDataset
+elif args.dataset == 'emovdb':
+    from datasets.emovdb import vocab, Emovdb as SpeechDataset
 else:
     from datasets.mb_speech import vocab, MBSpeech as SpeechDataset
 
@@ -38,9 +40,8 @@ train_data_loader = Text2MelDataLoader(text2mel_dataset=SpeechDataset(['texts', 
 valid_data_loader = Text2MelDataLoader(text2mel_dataset=SpeechDataset(['texts', 'mels', 'mel_gates']), batch_size=64,
                                        mode='valid')
 
-text2mel = Text2Mel(vocab).cuda()
+text2mel = Text2Mel(vocab).cpu()
 
-optimizer = torch.optim.Adam(text2mel.parameters(), lr=hp.text2mel_lr)
 
 start_timestamp = int(time.time() * 1000)
 start_epoch = 0
@@ -52,8 +53,9 @@ logger = Logger(args.dataset, 'text2mel')
 last_checkpoint_file_name = get_last_checkpoint_file_name(logger.logdir)
 if last_checkpoint_file_name:
     print("loading the last checkpoint: %s" % last_checkpoint_file_name)
-    start_epoch, global_step = load_checkpoint(last_checkpoint_file_name, text2mel, optimizer)
+    start_epoch, global_step = load_checkpoint(last_checkpoint_file_name, text2mel, None)
 
+optimizer = torch.optim.Adam(text2mel.parameters(), lr=hp.text2mel_lr)
 
 def get_lr():
     return optimizer.param_groups[0]['lr']
@@ -102,13 +104,13 @@ def train(train_epoch, phase='train'):
         W = np.fromfunction(W_nt, (B, N, T), dtype=np.float32)
         W = torch.from_numpy(W)
 
-        L = L.cuda()
-        S = S.cuda()
-        S_shifted = S_shifted.cuda()
-        W = W.cuda()
-        gates = gates.cuda()
+        L = L.cpu()
+        S = S.cpu()
+        S_shifted = S_shifted.cpu()
+        W = W.cpu()
+        gates = gates.cpu()
 
-        Y_logit, Y, A = text2mel(L, S)
+        Y_logit, Y, A = text2mel(L, S, monotonic_attention=True)
 
         l1_loss = F.l1_loss(Y, S_shifted)
         masks = gates.reshape(B, 1, T).float()
@@ -138,8 +140,8 @@ def train(train_epoch, phase='train'):
             })
             logger.log_step(phase, global_step, {'loss_l1': l1_loss, 'loss_att': att_loss},
                             {'mels-true': S[:1, :, :], 'mels-pred': Y[:1, :, :], 'attention': A[:1, :, :]})
-            if global_step % 5000 == 0:
-                # checkpoint at every 5000th step
+            if global_step % 1000 == 0:
+                # checkpoint at every 1000th step
                 save_checkpoint(logger.logdir, train_epoch, global_step, text2mel, optimizer)
 
     epoch_loss = running_loss / it
@@ -167,3 +169,4 @@ while True:
     if global_step >= hp.text2mel_max_iteration:
         print("max step %d (current step %d) reached, exiting..." % (hp.text2mel_max_iteration, global_step))
         sys.exit(0)
+

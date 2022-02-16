@@ -7,3 +7,7 @@ logdir/
 samples
 *.npy
 *.tar.bz2
+emovdb/
+venv/
+datasets/LJSpeech-1.1/
+datasets/LJSpeech-1.1.tar.bz2

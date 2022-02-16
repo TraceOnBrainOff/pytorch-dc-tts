@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 # project imports
 from models import SSRN
-from hparams import HParams as hp
+from hyperparams import HParams as hp
 from logger import Logger
 from utils import get_last_checkpoint_file_name, load_checkpoint, save_checkpoint
 from datasets.data_loader import SSRNDataLoader
@@ -49,6 +49,7 @@ last_checkpoint_file_name = get_last_checkpoint_file_name(logger.logdir)
 if last_checkpoint_file_name:
     print("loading the last checkpoint: %s" % last_checkpoint_file_name)
     start_epoch, global_step = load_checkpoint(last_checkpoint_file_name, ssrn, optimizer)
+
 
 
 def get_lr():

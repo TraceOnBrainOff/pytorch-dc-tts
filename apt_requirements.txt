@@ -1,0 +1,3 @@
+libopenmpi-dev
+libomp5
+libopenblas-dev

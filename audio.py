@@ -8,7 +8,7 @@ import numpy as np
 
 from tqdm import tqdm
 from scipy import signal
-from hparams import HParams as hp
+from hyperparams import HParams as hp
 
 
 def spectrogram2wav(mag):
@@ -34,7 +34,7 @@ def spectrogram2wav(mag):
     wav = signal.lfilter([1], [1, -hp.preemphasis], wav)
 
     # trim
-    wav, _ = librosa.effects.trim(wav)
+    wav, _ = librosa.effects.trim(wav, top_db=20)
 
     return wav.astype(np.float32)
 
@@ -44,7 +44,7 @@ def griffin_lim(spectrogram):
     X_best = copy.deepcopy(spectrogram)
     for i in range(hp.n_iter):
         X_t = invert_spectrogram(X_best)
-        est = librosa.stft(X_t, hp.n_fft, hp.hop_length, win_length=hp.win_length)
+        est = librosa.stft(X_t, n_fft=hp.n_fft, hop_length=hp.hop_length, win_length=hp.win_length)
         phase = est / np.maximum(1e-8, np.abs(est))
         X_best = spectrogram * phase
     X_t = invert_spectrogram(X_best)
@@ -58,7 +58,7 @@ def invert_spectrogram(spectrogram):
     Args:
       spectrogram: [1+n_fft//2, t]
     '''
-    return librosa.istft(spectrogram, hp.hop_length, win_length=hp.win_length, window="hann")
+    return librosa.istft(spectrogram, hop_length=hp.hop_length, win_length=hp.win_length, window="hann")
 
 
 def get_spectrograms(fpath):
@@ -74,7 +74,7 @@ def get_spectrograms(fpath):
     y, sr = librosa.load(fpath, sr=hp.sr)
 
     # Trimming
-    y, _ = librosa.effects.trim(y)
+    y, _ = librosa.effects.trim(y, top_db=20)
 
     # Preemphasis
     y = np.append(y[0], y[1:] - hp.preemphasis * y[:-1])
@@ -89,7 +89,7 @@ def get_spectrograms(fpath):
     mag = np.abs(linear)  # (1+n_fft//2, T)
 
     # mel spectrogram
-    mel_basis = librosa.filters.mel(hp.sr, hp.n_fft, hp.n_mels)  # (n_mels, 1+n_fft//2)
+    mel_basis = librosa.filters.mel(sr=hp.sr, n_fft=hp.n_fft, n_mels=hp.n_mels)  # (n_mels, 1+n_fft//2)
     mel = np.dot(mel_basis, mag)  # (n_mels, t)
 
     # to decibel
@@ -136,3 +136,4 @@ def preprocess(dataset_path, speech_dataset):
 
         np.save(os.path.join(mels_path, '%s.npy' % fname), mel)
         np.save(os.path.join(mags_path, '%s.npy' % fname), mag)
+
