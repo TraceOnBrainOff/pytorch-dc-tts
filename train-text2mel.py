@@ -102,7 +102,7 @@ def train(train_epoch, phase='train'):
             return 1.0 - np.exp(-((n / float(N) - t / float(T)) ** 2) / (2 * g ** 2))
 
         W = np.fromfunction(W_nt, (B, N, T), dtype=np.float32)
-        W = torch.from_numpy(W)
+        W = torch.from_numpy(int(W))
 
         L = L.cpu()
         S = S.cpu()
