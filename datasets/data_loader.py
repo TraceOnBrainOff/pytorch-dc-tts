@@ -70,7 +70,7 @@ def collate_fn(batch):
 
     # use the default_collate to convert to tensors
     for key in keys:
-        collated_batch[key] = default_collate(collated_batch[key])
+        collated_batch[key] = int(default_collate(collated_batch[key])).long()
     return collated_batch
 
 
